@@ -1,0 +1,13 @@
+# DSH控制台面板 —— bundle patch
+#
+# 装法：DSH 插件页「添加插件」选这个目录打出来的 .tgz，或者写进 profile 的 bundles。
+#
+# ⚠️ 关键：loader 行放在**包自己**的这个文件里，不要写到 profile 的 cordis.patch.yml。
+#    profile 那个文件只放 id 定向的配置覆盖 —— 重复 insert 会让插件加载两次。
+#
+# 配置（一般不用改）：
+#   port: 8899          局域网服务端口，被占用会自动往后顺延
+#   name: "我的电脑"     显示在面板上的名字
+- insert:
+    - id: dsh-console
+      name: './lib/index.js'
