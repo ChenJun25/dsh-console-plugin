@@ -25,3 +25,6 @@ tmp/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ===== 误跟踪的系统缓存（字面目录，某脚本没展开 %SystemDrive% 造出来的）=====
+%SystemDrive%/
