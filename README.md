@@ -172,6 +172,7 @@ profile `package.json` 的 `dependencies` 加 `"dsh-console-plugin": "link:<绝�
 | `/pair` | GET | 否 | 配对页（二维码 + 6 位码 + 局域网地址） |
 | `/qr` | GET | 否 | 二维码 PNG |
 | `/claim` | POST | 否 | **6 位码换访问码**。错码 403、格式错 400、**用过即作废** |
+| `/pair/ticket` | POST | 否 | **一次性票据换访问码**（body `{"ticket":"pt_…"}`）。票 5 分钟过期、用一次即焚；失败 403。仅局域网可用 |
 | `/newcode` | GET | 否 | 换一张新码 |
 | `/info` | GET | 是 | 节点信息 |
 | `/sessions` | GET | 是 | 读 DSH 会话列表 |
@@ -203,12 +204,16 @@ profile `package.json` 的 `dependencies` 加 `"dsh-console-plugin": "link:<绝�
 ### 二维码里装的是什么
 
 ```
-dsh-console://pair?b=http://192.168.x.x:8899/dsh-console&t=<访问码>&n=客厅电脑&i=dsh-console
+dsh-console://pair?b=http://192.168.x.x:8899/dsh-console&k=pt_<32位hex>&n=客厅电脑&i=dsh-console&c=<公网候选>&v=<每次不同>
 ```
 
-**连接信息直接装在二维码里**，扫完即连，一次交换都不需要。
+**二维码里装的是一次性配对票据，不是长期访问码**（第201节 · task-19 起）：
+扫到票之后，手机在**局域网内**打 `POST /pair/ticket`（body `{"ticket":"pt_..."}`）
+换回 `{ ok, token, base, name, c }` —— 票 5 分钟过期、用一次即焚，
+公网来源一律 403（`/pair/ticket` 与 `/claim` 一样只在局域网可用）。
 客户端侧 `parsePairPayload` 的解法：取 `dsh-console://pair` 后面的 query，
-`b` 是 base、`t` 是访问码、`n` 是节点名、`i` 是节点 id。
+`b` 是 base、`k` 是一次性票据、`n` 是节点名、`i` 是节点 id、`c` 是公网候选。
+6 位码那条路（`POST /claim`）语义不变，成功响应里照旧直接回访问码。
 
 ---
 

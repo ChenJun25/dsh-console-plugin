@@ -19,12 +19,14 @@ const INFO = { name: '客厅电脑', nodeId: 'dsh-console', host: 'DESKTOP-XYZ',
 
 /* ================= 1. 载荷 ================= */
 console.log('【1】二维码载荷')
-const payload = pairPayload({ base: 'http://192.168.1.5:8899/dsh-console', token: TOKEN, name: INFO.name, node: 'dsh-console' })
+const TICKET = 'pt_' + 'a'.repeat(32)
+const payload = pairPayload({ base: 'http://192.168.1.5:8899/dsh-console', ticket: TICKET, name: INFO.name, node: 'dsh-console' })
 console.log('  ' + payload + '\n')
 ok(payload.startsWith('dsh-console://pair?'), '协议头正确')
 ok(!payload.includes('dsh-console.local'), '无假域名')
 ok(payload.includes('192.168.1.5'), '含局域网地址')
-ok(payload.includes(TOKEN), '含访问码')
+ok(payload.includes(TICKET), '含一次性票据 k=')
+ok(!payload.includes(TOKEN), '载荷不含长期访问码（第201节 · task-19 红线）')
 ok(payload.includes(encodeURIComponent(INFO.name)), '中文已编码')
 console.log('')
 
