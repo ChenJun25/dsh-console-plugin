@@ -80,7 +80,7 @@ section('鉴权门禁')
 
 {
   const s = await serve()
-  // Non-/mp traffic must be untouched — the WeChat mini program still works.
+  // Non-/mp traffic must be untouched — the legacy token path still works.
   const r = await fetch(s.base + '/sessions')
   assert.equal(r.status, 404)
   assert.equal(await r.text(), 'not mp')

@@ -124,7 +124,7 @@ console.log('')
 
 /* ================= 7. 端口锁死（不许静默顺延） ================= */
 console.log('【7】端口被占时必须报错，不许偷偷换端口')
-// 小程序输 6 位码那条路把 8899 写死了（dsh-console/utils/lan.js:209），
+// 6 位码那条路把 8899 写死了，
 // 插件一旦顺延到 8900，手机就再也找不到电脑。
 const COLLIDE_PORT = 18888
 const occupied = startLanServer({
@@ -144,7 +144,7 @@ const blocked = startLanServer({
 const blockedStarted = await blocked.start()
 ok(blockedStarted === null && blocked.port === 0,
    '第二个服务占同一端口 → 启动失败并返回 null（没顺延到 ' + (COLLIDE_PORT + 1) + '）')
-// 显式 allowShift 才允许换端口 —— 这条路是留给「小程序也改端口」的场合
+// 显式 allowShift 才允许换端口 —— 这条路是留给「手机端也改端口」的场合
 const shifting = startLanServer({
   port: COLLIDE_PORT,
   allowShift: true,
@@ -212,7 +212,7 @@ ok(src.includes('const STATE_ROUTE = "/api/dsh-console/state".slice(1)'),
     ok(v.includes('dsh-console/'),
        k + ' 没被 .slice(1) 吃掉连字符（曾导致全 404）: ' + JSON.stringify(v))
   }
-  // 宿主仍然提供 sessions/cmd（给小程序和排查用），只是面板不调了
+  // 宿主仍然提供 sessions/cmd（给 App 和排查用），只是面板不调了
   for (const p of ['/api/dsh-console/sessions', '/api/dsh-console/cmd']) {
     ok(!Object.values(routes).includes(p.slice(1)),
        '面板不再调 ' + p + '（2026-10-03 按用户要求删掉会话列表）')
