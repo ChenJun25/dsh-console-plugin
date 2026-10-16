@@ -202,9 +202,12 @@ ok(src.includes('const STATE_ROUTE = "/api/dsh-console/state".slice(1)'),
     // 这正是 dsh-startup-control 能跑通的原因 —— 相对当前文档解析）
     routes[m[1]] = m[3] ? m[2].slice(1) : m[2]
   }
-  const hostPaths = ['/api/dsh-console/state', '/api/dsh-console/newcode']
+  // 2026-10-16 第211节：用户要求「面板登录即自动检测版本（不用手点）」，
+  // 实现复用既有 /cmd 通路的 op=updateCheck（client.js 侧栏入口首挂载自动发一次）
+  // ⇒ 面板又多一条 cmd 路由，原「只解析 2 条 / 不再调 cmd」断言被用户新需求合法推翻。
+  const hostPaths = ['/api/dsh-console/state', '/api/dsh-console/newcode', '/api/dsh-console/cmd']
   const got = Object.values(routes)
-  ok(got.length === 2, '面板只解析 2 条路由常量（会话那两条已删）: ' + got.length)
+  ok(got.length === 3, '面板解析 3 条路由常量（state/newcode/cmd；sessions 那条已删）: ' + got.length)
   for (const p of hostPaths) {
     // 客户端常量 = 宿主路径去掉首字符 '/'，相对当前文档解析后仍命中同一路由
     ok(got.includes(p.slice(1)),
@@ -214,11 +217,12 @@ ok(src.includes('const STATE_ROUTE = "/api/dsh-console/state".slice(1)'),
     ok(v.includes('dsh-console/'),
        k + ' 没被 .slice(1) 吃掉连字符（曾导致全 404）: ' + JSON.stringify(v))
   }
-  // 宿主仍然提供 sessions/cmd（给 App 和排查用），只是面板不调了
-  for (const p of ['/api/dsh-console/sessions', '/api/dsh-console/cmd']) {
-    ok(!Object.values(routes).includes(p.slice(1)),
-       '面板不再调 ' + p + '（2026-10-03 按用户要求删掉会话列表）')
-  }
+  // 宿主仍然提供 sessions/cmd（给 App 和排查用）
+  ok(!Object.values(routes).includes('/api/dsh-console/sessions'.slice(1)),
+     '面板不再调 sessions（2026-10-03 按用户要求删掉会话列表）')
+  // cmd 反过来必须保留：第211节用户要求登录即自动检测版本，走的就是 /cmd 的 updateCheck op
+  ok(Object.values(routes).includes('/api/dsh-console/cmd'.slice(1)),
+     '面板保留 cmd（第211节：侧栏自动检测更新走 /cmd 的 updateCheck op）')
   ok(!code.includes('function Sessions'), '会话列表组件已删')
   ok(!/jsx\(Sessions/.test(code), '设置页不再挂 Sessions')
   ok(!code.includes('sessions.title'), '会话相关文案已删')
