@@ -67,6 +67,11 @@ async function boot() {
 
   return {
     lan, mp, emit, events, info,
+    /* 🔴 task-8：假宿主用例要能直接拿到原始监听器，才能按 cordis waterfall 的语义
+       传 next 进来（emit 只是同步转发，拿不到监听器返回的 Promise，也观察不到
+       req.signal 有没有被 abort）。
+       ——「电脑端 UI」就是那个 next：它返回的 Promise 永不 settle。 */
+    listeners,
     // lan.urls carry the /dsh-console prefix that the panel is served under;
     // the mp routes are on the bare origin, so talk to loopback directly.
     base: 'http://127.0.0.1:' + info.port,
@@ -235,6 +240,85 @@ section('配对生命周期')
     })
     assert.equal(still.status, 200, 'the other device is unaffected')
     ok('revoking one device leaves the other one working')
+  } finally {
+    await b.stop()
+  }
+}
+
+/* ---------------- 手机答复必须放掉宿主那一环 ---------------- */
+section('手机答复必须放掉宿主那一环（电脑端卡片摘除）')
+
+{
+  const b = await boot()
+  try {
+    const pair = await fetch(b.base + '/mp/pair/accept', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: b.code }),
+    })
+    const cookie = pair.headers.get('set-cookie').split(';')[0]
+
+    /* 按 cordis waterfall 的真实语义调监听器：next 就是「电脑端那条链」。
+       返回一个永不 settle 的 Promise = 电脑端 UI 一直挂在 answerQuestion 里
+       （asar 实证 client.js:1795 `await (claimEnded === void 0 ? waterfall.result : ...)`
+       ⇒ finally(:1803-1812) 永不执行 ⇒ card.hasRequest()(:1777 trackRequest 未 resolve)
+       与 card.pending.hasWaterfall()(:1782-1784 detachWaterfall 未跑) 恒真
+       ⇒ publishContinuedQuestions 的 reconcile(:1874-1877) 永远命中 continue
+       ⇒ 卡片不摘、每问一次叠一层。legacy 下 callId===void 0 让投影清理整条死掉，
+       只有 answerQuestion 的 finally 里 `if (callId === void 0) card.remove()` 能摘。）
+       插件侧的唯一可观测杠杆：abort 我们注入进 req.signal 的那条控制器
+       ⇒ api-remotes → gateway finishRemoteEvent → 推 cancel 帧
+       ⇒ 电脑端 client remote-events.js:76-78 收到 'cancel' → controller.abort()
+       ⇒ claimSignal abort → ASK_ABORTED → waterfall 结束 → 卡片被摘。 */
+    const host = (evt, req, next) => {
+      const fns = b.listeners.get(evt) || []
+      assert.ok(fns.length >= 1, 'the mp listener subscribed ' + evt)
+      return fns.map((fn) => fn(req, next))
+    }
+
+    // ① 提问：宿主链永不 settle，手机答复后必须把宿主那一环放掉。
+    const req = {
+      rpcId: 'q10', sessionId: 's1',
+      questions: [{ id: 'x', question: '继续吗', intent: { kind: 'plan-review' }, detail: '计划正文', options: [{ label: 'approve' }] }],
+    }
+    let hostRuns = 0
+    const pending = host('user-questions/request', req, () => { hostRuns++; return new Promise(() => {}) })[0]
+    assert.ok(pending && typeof pending.then === 'function', 'mp claims the host waterfall with a Promise')
+    assert.equal(hostRuns, 1, 'the host chain is still released (the desktop card still appears)')
+    assert.equal(req.signal === undefined ? false : req.signal.aborted, false, 'nothing is cancelled before the phone answers')
+
+    const replied = await (await fetch(b.base + '/mp/api/mobile.respond', {
+      method: 'POST', headers: { Cookie: cookie },
+      body: JSON.stringify({ rpcId: 'r', payload: { sessionId: 's1', type: 'question', rpcId: 'q10', answers: [{ id: 'x', selected: ['approve'] }] } }),
+    })).json()
+    assert.equal(replied.result.ok, true)
+    const got = await pending
+    assert.deepEqual(got, { answers: [{ id: 'x', selected: ['approve'] }] }, 'the phone answer settles our own ring')
+    assert.ok(req.signal !== undefined, 'a claimed question request carries a signal the plugin owns')
+    assert.equal(req.signal.aborted, true, 'after the phone answers, that signal is aborted so the desktop chain can finish')
+    ok('a phone answer releases the host ring instead of leaving the desktop card hanging')
+
+    // ② 宿主先答：绝不能反过来 abort 宿主那一环。
+    const req2 = { rpcId: 'q11', sessionId: 's1', questions: [{ id: 'y', question: '走吗', options: [{ label: 'go' }] }] }
+    const hostValue = { answers: [{ id: 'y', selected: ['go'] }] }
+    const done = host('user-questions/request', req2, () => Promise.resolve(hostValue))[0]
+    assert.deepEqual(await done, hostValue, 'the host answer wins when it arrives first')
+    assert.equal(req2.signal === undefined ? false : req2.signal.aborted, false, 'a host-side answer cancels nothing')
+    ok('a host-side answer is passed through untouched')
+
+    // ③ 审批：req.signal 是调用方 turn 的 live signal（dsh-user-approval/lib/index.js:112/172-189），
+    //    注入或 abort 它会取消整个 turn —— 一行都不许碰。
+    const ctrl = new AbortController()
+    const reqA = { approvalId: 'a9', rpcId: 'q12', sessionId: 's1', toolName: 'fs.write', callId: 'c9', reason: '要写文件', signal: ctrl.signal }
+    const pendA = host('approval/request', reqA, () => new Promise(() => {}))[0]
+    assert.equal(reqA.signal, ctrl.signal, 'the approval signal object is left exactly as the host sent it')
+    const repA = await (await fetch(b.base + '/mp/api/mobile.respond', {
+      method: 'POST', headers: { Cookie: cookie },
+      body: JSON.stringify({ rpcId: 'r', payload: { sessionId: 's1', type: 'approval', approvalId: 'a9', outcome: 'allow' } }),
+    })).json()
+    assert.equal(repA.result.ok, true)
+    assert.equal(await pendA, 'allowed-once', 'the phone answer settles the approval ring')
+    assert.equal(ctrl.signal.aborted, false, 'answering an approval must never abort the calling turn')
+    ok('an approval answer never touches the calling turn signal')
   } finally {
     await b.stop()
   }
