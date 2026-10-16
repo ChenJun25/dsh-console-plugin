@@ -97,17 +97,20 @@ ok(d2.phoneOnline === true && d2.phoneLastSeen > 0, '对码成功后 → 手机�
    'phoneOnline=' + d2.phoneOnline + ' lastSeen=' + d2.phoneLastSeen)
 console.log('')
 
-/* ================= 5. 配对页 ================= */
-console.log('【5】浏览器配对页')
-const page = await fetch(base + '/pair')
-const html = await page.text()
-ok(page.status === 200, '免 token 能打开')
-ok(html.includes(d2.code), '页面显示当前 6 位码', d2.code)
-ok(html.includes('data:image/png;base64'), '页面嵌了二维码')
-ok(html.includes('width:280px'), '二维码 280px（实测稳定尺寸）')
-ok(html.includes('background:#fff'), '白底（深色页面上也能扫）')
-ok(html.includes('局域网地址'), '面板最下面有局域网地址区')
-ok(html.includes(d2.token), '显示访问码（手动填时用）')
+/* ================= 5. 配对页（第213节起已删） ================= */
+console.log('【5】浏览器配对页已删除')
+{
+  let allGone = true
+  for (const p of ['/', '/pair']) {
+    const r = await fetch(base + p)
+    const body = await r.text()
+    if (r.status !== 401) allGone = false
+    if (body.includes('<html') || body.includes('<!DOCTYPE')) allGone = false
+  }
+  ok(allGone, '/ 与 /pair 一律 401、一个字节 HTML 都不吐')
+  const withTok = await fetch(base + '/pair?token=' + TOKEN)
+  ok(withTok.status === 404, '带对码也没有 /pair 路由（404）')
+}
 console.log('')
 
 /* ================= 6. 安全边界 ================= */
@@ -119,7 +122,7 @@ ok(badTok.status === 401, '错访问码被拒')
 const withTok = await fetch(base + '/info?token=' + TOKEN)
 ok(withTok.status === 200, '对访问码放行')
 const qrNoTok = await fetch(base + '/qr')
-ok(qrNoTok.status === 200, '/qr 免 token（本机可达即可，页面上本来就显示着）')
+ok(qrNoTok.status === 200, '/qr 免 token（配对页没了，这个二维码接口还在）')
 const sessNoTok = await fetch(base + '/sessions')
 ok(sessNoTok.status === 401, '没访问码读会话被拒')
 console.log('')
