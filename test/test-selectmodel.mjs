@@ -1,16 +1,8 @@
-/**
- * test-selectmodel.mjs —— 0.4.0 换模型 op 的逻辑测试（进程外直调）
- *
- * 不起 LAN 服务、不碰真 DSH：mock sessionController 按宿主实测形状回包，
- * 验证 runCommand 里 selectModel / modelCatalog / sessions.model 三个新路径。
- * 跑法：node test/test-selectmodel.mjs
- */
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
 const { apply: applyFn } = await import('../lib/index.js')
 
-/** 按宿主实测形状 mock sessionController（sc-index.js:720 / modelCatalog 实测回包） */
 function mockCtl() {
   return {
     list: async () => ({
@@ -47,7 +39,6 @@ function mockCtl() {
   }
 }
 
-/** 从 apply() 里抠出 runCommand：注册路由时截胡 cmd 路由的 fetch 处理器 */
 function extractRunCommand() {
   const ctl = mockCtl()
   let captured = null

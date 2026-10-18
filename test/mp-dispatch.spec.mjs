@@ -1,10 +1,3 @@
-/**
- * RPC 分发器测试。
- *
- * 用一个假的 sessionController 把 probe 出来的方法面复刻出来，
- * 验证每个方法的映射、游标分页、错误信封。真实 DSH 起不来也不该起 ——
- * 这层要的就是「不依赖宿主也能验证行为」。
- */
 import assert from 'node:assert/strict'
 import { createDispatcher } from '../lib/mp-dispatch.mjs'
 
@@ -13,7 +6,6 @@ const ok = (t) => { n++; console.log('  ok - ' + t) }
 const section = (t) => console.log('\n' + t)
 const noop = () => {}
 
-/** 复刻 ~/.dsh/dsh-console.log 里 [probe] 打出的方法面。 */
 function fakeCtl(over = {}) {
   return {
     async list() { return { items: [] } },
@@ -35,7 +27,6 @@ const ctxWith = (ctl, extra = {}) => ({
 
 const noLog = noop
 
-/* ---------------- 基本形状 ---------------- */
 section('信封与白名单')
 
 {
@@ -68,7 +59,6 @@ section('信封与白名单')
   ok('every method degrades safely when the host lacks it')
 }
 
-/* ---------------- 会话投影 ---------------- */
 section('会话投影字段')
 
 {
@@ -101,7 +91,6 @@ section('会话投影字段')
   ok('one session fits in one page')
 }
 
-/* ---------------- 游标分页 ---------------- */
 section('游标分页')
 
 {
@@ -132,7 +121,6 @@ section('游标分页')
   ok('an unrecognised cursor falls back to page one rather than nothing')
 }
 
-/* ---------------- 发消息 ---------------- */
 section('session.prompt')
 
 {
@@ -196,7 +184,6 @@ section('session.prompt')
   ok('unknown block types are dropped rather than forwarded blindly')
 }
 
-/* ---------------- 历史 ---------------- */
 section('session.history')
 
 {
@@ -223,7 +210,6 @@ section('session.history')
   ok('maxMessages is honoured, not ignored')
 }
 
-/* ---------------- 审批 ---------------- */
 section('mobile.respond')
 
 {
@@ -260,7 +246,6 @@ section('mobile.respond')
   ok('an approval reply without approvalId is refused')
 }
 
-/* ---------------- 置顶 ---------------- */
 section('session.pin')
 
 {
@@ -282,7 +267,6 @@ section('session.pin')
   ok('pinning without a sessionId is refused')
 }
 
-/* ---------------- 不崩的保证 ---------------- */
 section('宿主抛错时的行为')
 
 {

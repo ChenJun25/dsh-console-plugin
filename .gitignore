@@ -1,30 +1,28 @@
-# ===== 依赖 =====
+# ===== dependencies =====
 node_modules/
 
-# ===== AI 手动备份：lib\ 下有 22 个 .bak（index.js.bak-117-wsrename 等）=====
-# 命名体系混乱（-bak-97 / -bak-before93 / -bak-112-live 并存），看不出对应哪次改动。
-# 以后改 lib\ 一律靠 git 存档，不再手动 copy。
+# ===== local backups =====
 *.bak
 *.bak-*
 *.bak-before*
 *.bak[0-9]*
 
-# ===== 历史打包产物（根目录 5 个 tgz，最大 447KB）=====
+# ===== build artifacts =====
 *.tgz
 
-# ===== 日志与临时输出 =====
+# ===== logs and temp output =====
 *.log
 tmp-*/
 tmp/
 
-# ===== 仅本地留存、不入库的内部协作文档 =====
+# ===== local-only notes =====
 交接说明.md
 协同记录.md
 
-# ===== 系统垃圾 =====
+# ===== OS junk =====
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# ===== 误跟踪的系统缓存（字面目录，某脚本没展开 %SystemDrive% 造出来的）=====
+# ===== stray cache directory =====
 %SystemDrive%/

@@ -1,9 +1,3 @@
-/**
- * /mp/* 挂载的集成测试 —— 起一个真的 http.Server，用真的 fetch 打过去。
- *
- * 为什么非要真 socket：门禁、状态码、Cookie 往返这三样最容易在单测里
- * 「因为没走网络所以看不出来」。这里逐个都走真 HTTP。
- */
 import assert from 'node:assert/strict'
 import http from 'node:http'
 import { createMpBranch } from '../lib/mp-routes.mjs'
@@ -14,7 +8,6 @@ const ok = (t) => { n++; console.log('  ok - ' + t) }
 const section = (t) => console.log('\n' + t)
 const noop = () => {}
 
-/** 起一个带 /mp/* 的服务，返回 baseUrl 与关闭函数。 */
 async function serve(over = {}) {
   const calls = []
   const ctl = {
@@ -32,8 +25,6 @@ async function serve(over = {}) {
   const dispatch = createDispatcher({ get: (k) => (k === 'sessionController' ? ctl : null) },
     (m) => calls.push(m), over.tracker || null, { pins: new Set() })
 
-  // 复刻 lan-server.mjs 的 handler 形状：/mp/* 走早返回分支，其它一律 404。
-  // 这正是实测踩过的坑 —— 另挂监听器会被这里抢先写掉 404。
   const branch = createMpBranch({ dispatch, store, log: noop })
   const server = http.createServer(async (req, res) => {
     const pathname = String(req.url || '/').split('?')[0]
@@ -48,7 +39,6 @@ async function serve(over = {}) {
 
 const withCookie = (c) => ({ Cookie: 'mp_device=' + c })
 
-/* ---------------- 门禁 ---------------- */
 section('鉴权门禁')
 
 {
@@ -99,7 +89,6 @@ section('鉴权门禁')
   ok('a path that merely starts with similar letters is not claimed')
 }
 
-/* ---------------- 配对 ---------------- */
 section('配对换 Cookie')
 
 {
@@ -231,7 +220,6 @@ section('RPC 往返')
   ok('a non-JSON body degrades to an empty payload instead of crashing')
 }
 
-/* ---------------- 并发 ---------------- */
 section('并发与稳定性')
 
 {

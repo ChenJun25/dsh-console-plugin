@@ -1,10 +1,3 @@
-/**
- * 端到端接线测试 —— 用真正的 startLanServer 跑一遍客户端的完整流程。
- *
- * 前面的测试都是分段验的（契约 / 分发 / 挂载各测各的）。这里把它们拼起来，
- * 因为真正的风险恰恰在接缝上：mp.branch 到底有没有被 handler 调用、
- * 配对码是不是真的复用了面板那一个、WS 升级有没有挂上。
- */
 import assert from 'node:assert/strict'
 import { startLanServer } from '../lib/lan-server.mjs'
 import { attachMp } from '../lib/mp-support.mjs'
@@ -14,10 +7,6 @@ const ok = (t) => { n++; console.log('  ok - ' + t) }
 const section = (t) => console.log('\n' + t)
 const noop = () => {}
 
-/**
- * 起一套完整的：假 ctx + 真的 lan-server + 真的 mp 接线，
- * 走 index.js 里那几行的同一条路径。
- */
 async function boot() {
   const events = []
   const listeners = new Map()
@@ -49,7 +38,7 @@ async function boot() {
   }
 
   const lan = startLanServer({
-    port: 0,               // 0 = 让系统分配，避免撞上真的 8899
+    port: 0,
     allowShift: true,
     getToken: () => 'tok',
     getInfo: () => ({ name: 'n', nodeId: 'x', host: 'h', dshOk: true, version: '0.5.0' }),
@@ -67,10 +56,7 @@ async function boot() {
 
   return {
     lan, mp, emit, events, info,
-    /* 🔴 task-8：假宿主用例要能直接拿到原始监听器，才能按 cordis waterfall 的语义
-       传 next 进来（emit 只是同步转发，拿不到监听器返回的 Promise，也观察不到
-       req.signal 有没有被 abort）。
-       ——「电脑端 UI」就是那个 next：它返回的 Promise 永不 settle。 */
+
     listeners,
     // lan.urls carry the /dsh-console prefix that the panel is served under;
     // the mp routes are on the bare origin, so talk to loopback directly.
@@ -80,18 +66,16 @@ async function boot() {
   }
 }
 
-/* ---------------- 完整客户端流程 ---------------- */
 section('客户端完整流程')
 
 {
   const b = await boot()
   try {
-    // 1. 未配对时必须被挡住 —— 这是配对页存在的理由。
+
     const blocked = await fetch(b.base + '/mp/pair/status', { headers: { Cookie: 'mp_device=nope' } })
     assert.equal(blocked.status, 403)
     ok('an unpaired device is refused before anything else')
 
-    // 2. 用面板上显示的那个 6 位码配对 —— 必须是同一个码。
     assert.ok(/^\d{6}$/.test(b.code), 'the panel code is six digits: ' + b.code)
     const pair = await fetch(b.base + '/mp/pair/accept', {
       method: 'POST',
@@ -103,12 +87,10 @@ section('客户端完整流程')
     assert.ok(cookie.startsWith('mp_device='))
     ok('the same code shown on the panel also yields an mp_device cookie')
 
-    // 3. 配对后 status 通过。
     const st = await fetch(b.base + '/mp/pair/status', { headers: { Cookie: cookie } })
     assert.equal((await st.json()).paired, true)
     ok('the paired device passes the status check')
 
-    // 4. 拉会话列表。
     const list = await fetch(b.base + '/mp/api/session.list', {
       method: 'POST', headers: { Cookie: cookie },
       body: JSON.stringify({ rpcId: 'r1', payload: {} }),
@@ -119,7 +101,6 @@ section('客户端完整流程')
     assert.equal(body.result.value.items[0].title, '测试会话')
     ok('the session list loads through the mp contract')
 
-    // 5. 拉历史。
     const hist = await fetch(b.base + '/mp/api/session.history', {
       method: 'POST', headers: { Cookie: cookie },
       body: JSON.stringify({ rpcId: 'r2', payload: { sessionId: 's1', maxMessages: 20 } }),
@@ -127,7 +108,6 @@ section('客户端完整流程')
     assert.equal((await hist.json()).result.value.events.length, 1)
     ok('history loads through the mp contract')
 
-    // 6. 发消息。
     const send = await fetch(b.base + '/mp/api/session.prompt', {
       method: 'POST', headers: { Cookie: cookie },
       body: JSON.stringify({ rpcId: 'r3', payload: { sessionId: 's1', content: [{ type: 'text', text: '在吗' }] } }),
@@ -137,7 +117,6 @@ section('客户端完整流程')
     assert.equal(b.events[0][1].content[0].text, '在吗')
     ok('a prompt reaches the host with its content intact')
 
-    // 7. 面板那条路没被弄坏。
     const panel = await fetch(b.base + '/info', { headers: { 'x-dsh-console-token': 'tok' } })
     assert.equal(panel.status, 200)
     ok('the existing panel route still works after the mp branch went in')
@@ -146,7 +125,6 @@ section('客户端完整流程')
   }
 }
 
-/* ---------------- 审批事件接线 ---------------- */
 section('审批事件接线')
 
 {
@@ -158,7 +136,6 @@ section('审批事件接线')
     })
     const cookie = pair.headers.get('set-cookie').split(';')[0]
 
-    // 宿主发一道审批 —— 客户端轮询必须能看到它。
     b.emit('approval/request', {
       approvalId: 'a1', rpcId: 'q1', sessionId: 's1', toolName: 'fs.write', callId: 'c1', reason: '要写文件',
     })
@@ -170,7 +147,6 @@ section('审批事件接线')
     assert.equal(snap.result.value.approvals[0].toolName, 'fs.write')
     ok('a host approval request becomes visible to the polling client')
 
-    // 回审批后应从快照里消失。
     const replied = await (await fetch(b.base + '/mp/api/mobile.respond', {
       method: 'POST', headers: { Cookie: cookie },
       body: JSON.stringify({ rpcId: 'r', payload: { sessionId: 's1', type: 'approval', approvalId: 'a1', outcome: 'allow' } }),
@@ -183,7 +159,6 @@ section('审批事件接线')
     assert.equal(after.result.value.approvals.length, 0, 'it is gone once answered')
     ok('answering an approval removes it from the snapshot')
 
-    // 提问同理，并且要带上正确的 kind。
     b.emit('user-questions/request', {
       rpcId: 'q9', sessionId: 's1',
       questions: [{ id: 'x', question: '继续吗', intent: { kind: 'plan-review' }, detail: '计划正文', options: [{ label: 'approve' }] }],
@@ -206,7 +181,6 @@ section('审批事件接线')
   }
 }
 
-/* ---------------- 重复配对与撤销 ---------------- */
 section('配对生命周期')
 
 {
@@ -219,16 +193,15 @@ section('配对生命周期')
       })
       return r.status === 200 ? r.headers.get('set-cookie').split(';')[0] : null
     }
-    // 面板的码是一次性的：用过就作废。所以这里换两次要用两次 ensure。
+
     const c1 = await mk(b.code)
     assert.ok(c1, 'first pairing works')
-    b.lan.getPairCode()   // 重新生成一个新码
+    b.lan.getPairCode()
     const c2 = await mk(b.lan.peekPairCode())
     assert.ok(c2, 'a fresh code pairs again')
     assert.notEqual(c1, c2, 'each pairing gets its own secret')
     ok('two pairings produce two independent secrets')
 
-    // 撤销第一个设备后，它不该再能用。
     const rev = await fetch(b.base + '/mp/pair/revoke', { method: 'POST', headers: { Cookie: c1 } })
     assert.equal(rev.status, 200)
     const after = await fetch(b.base + '/mp/api/session.list', {
@@ -245,7 +218,6 @@ section('配对生命周期')
   }
 }
 
-/* ---------------- 手机答复必须放掉宿主那一环 ---------------- */
 section('手机答复必须放掉宿主那一环（电脑端卡片摘除）')
 
 {
@@ -257,25 +229,12 @@ section('手机答复必须放掉宿主那一环（电脑端卡片摘除）')
     })
     const cookie = pair.headers.get('set-cookie').split(';')[0]
 
-    /* 按 cordis waterfall 的真实语义调监听器：next 就是「电脑端那条链」。
-       返回一个永不 settle 的 Promise = 电脑端 UI 一直挂在 answerQuestion 里
-       （asar 实证 client.js:1795 `await (claimEnded === void 0 ? waterfall.result : ...)`
-       ⇒ finally(:1803-1812) 永不执行 ⇒ card.hasRequest()(:1777 trackRequest 未 resolve)
-       与 card.pending.hasWaterfall()(:1782-1784 detachWaterfall 未跑) 恒真
-       ⇒ publishContinuedQuestions 的 reconcile(:1874-1877) 永远命中 continue
-       ⇒ 卡片不摘、每问一次叠一层。legacy 下 callId===void 0 让投影清理整条死掉，
-       只有 answerQuestion 的 finally 里 `if (callId === void 0) card.remove()` 能摘。）
-       插件侧的唯一可观测杠杆：abort 我们注入进 req.signal 的那条控制器
-       ⇒ api-remotes → gateway finishRemoteEvent → 推 cancel 帧
-       ⇒ 电脑端 client remote-events.js:76-78 收到 'cancel' → controller.abort()
-       ⇒ claimSignal abort → ASK_ABORTED → waterfall 结束 → 卡片被摘。 */
     const host = (evt, req, next) => {
       const fns = b.listeners.get(evt) || []
       assert.ok(fns.length >= 1, 'the mp listener subscribed ' + evt)
       return fns.map((fn) => fn(req, next))
     }
 
-    // ① 提问：宿主链永不 settle，手机答复后必须把宿主那一环放掉。
     const req = {
       rpcId: 'q10', sessionId: 's1',
       questions: [{ id: 'x', question: '继续吗', intent: { kind: 'plan-review' }, detail: '计划正文', options: [{ label: 'approve' }] }],
@@ -297,7 +256,6 @@ section('手机答复必须放掉宿主那一环（电脑端卡片摘除）')
     assert.equal(req.signal.aborted, true, 'after the phone answers, that signal is aborted so the desktop chain can finish')
     ok('a phone answer releases the host ring instead of leaving the desktop card hanging')
 
-    // ② 宿主先答：绝不能反过来 abort 宿主那一环。
     const req2 = { rpcId: 'q11', sessionId: 's1', questions: [{ id: 'y', question: '走吗', options: [{ label: 'go' }] }] }
     const hostValue = { answers: [{ id: 'y', selected: ['go'] }] }
     const done = host('user-questions/request', req2, () => Promise.resolve(hostValue))[0]
@@ -305,8 +263,6 @@ section('手机答复必须放掉宿主那一环（电脑端卡片摘除）')
     assert.equal(req2.signal === undefined ? false : req2.signal.aborted, false, 'a host-side answer cancels nothing')
     ok('a host-side answer is passed through untouched')
 
-    // ③ 审批：req.signal 是调用方 turn 的 live signal（dsh-user-approval/lib/index.js:112/172-189），
-    //    注入或 abort 它会取消整个 turn —— 一行都不许碰。
     const ctrl = new AbortController()
     const reqA = { approvalId: 'a9', rpcId: 'q12', sessionId: 's1', toolName: 'fs.write', callId: 'c9', reason: '要写文件', signal: ctrl.signal }
     const pendA = host('approval/request', reqA, () => new Promise(() => {}))[0]

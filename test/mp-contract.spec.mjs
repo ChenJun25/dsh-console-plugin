@@ -1,15 +1,3 @@
-/**
- * /mp 契约一致性测试。
- *
- * 断言分两类：
- *   1. 锁死 mp-contract.mjs 自己的行为（信封、Cookie、合并、plan-review 判定）；
- *   2. 跨端比对 —— 直接读 dsh-mobile-plus 的 lib/constants.js，
- *      确认白名单名字与顺序没漂。
- *
- * 用法：
- *   node test/mp-contract.spec.mjs                      # 跑本文件的断言
- *   MP_SRC=/path/to/dsh-mobile-plus node test/...       # 额外跑跨端比对
- */
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -28,7 +16,6 @@ let n = 0
 const ok = (name) => { n++; console.log('  ok - ' + name) }
 const section = (t) => console.log('\n' + t)
 
-/* ---------------- 路由推导 ---------------- */
 section('/mp 路由推导')
 
 assert.equal(PREFIX, '/mp')
@@ -61,7 +48,6 @@ assert.equal(ENDPOINTS.accept, '/mp/pair/accept')
 assert.equal(ENDPOINTS.status, '/mp/pair/status')
 ok('the endpoints the client hardcodes match')
 
-/* ---------------- 白名单 ---------------- */
 section('RPC 白名单')
 
 assert.equal(ALLOW.length, 24)
@@ -76,7 +62,6 @@ for (const m of ['session.history', 'session.prompt', 'session.list', 'mobile.re
 }
 ok('the methods the chat page depends on are all allowed')
 
-/* ---------------- 信封 ---------------- */
 section('server-response 信封')
 
 const good = wrap('rpc-1', { items: [1, 2] })
@@ -110,7 +95,6 @@ assert.deepEqual(parseRpcBody({}), { rpcId: '', payload: {} })
 assert.deepEqual(parseRpcBody(null), { rpcId: '', payload: {} })
 ok('a malformed body degrades instead of throwing')
 
-/* ---------------- Cookie 鉴权 ---------------- */
 section('mp_device Cookie')
 
 assert.equal(COOKIE, 'mp_device')
@@ -136,7 +120,6 @@ assert.ok(setCookie.includes('HttpOnly'), 'is HttpOnly')
 assert.ok(setCookie.includes('Path=/'), 'is scoped to the root')
 ok('Set-Cookie carries the right attributes')
 
-/* ---------------- 实时帧 ---------------- */
 section('WebSocket 帧')
 
 const r = readyFrame('mux', 'client-9')
@@ -160,7 +143,6 @@ assert.equal(st.type, 'host/session-status')
 assert.equal(st.running, true)
 ok('the host channel gets a running indicator frame')
 
-/* ---------------- 审批 / 提问 ---------------- */
 section('审批与提问')
 
 const ap = approvalFrame({ approvalId: 'a1', toolName: 'fs.write', callId: 'c1', reason: '写文件' })
@@ -213,7 +195,6 @@ const qr2 = questionResponseBody('s1', { answers: [{ id: 'a', selected: [], cust
 assert.equal(qr2.answers[0].custom, '自己写的')
 ok('a real custom answer is kept')
 
-/* ---------------- 待决快照合并 ---------------- */
 section('待决快照与合并')
 
 const tracker = {
@@ -241,7 +222,6 @@ ok('a genuinely new question starts empty')
 assert.equal(mergePending(null, second).questions.length, 1)
 ok('merging from nothing works')
 
-/* ---------------- 与宿主源码比对 ---------------- */
 const MP_SRC = process.env.MP_SRC
 if (MP_SRC && existsSync(join(MP_SRC, 'lib', 'constants.js'))) {
   section('与 dsh-mobile-plus 源码比对')
