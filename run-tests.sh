@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# dsh-console 全部检查。
+# Full check suite for dsh-console.
 #
-# 设 MP_SRC=/path/to/dsh-mobile-plus 会额外跑跨端比对：直接读它的
-# lib/constants.js，确认 24 个 RPC 方法名与顺序没漂。没有就跳过那 4 项。
+# Set MP_SRC=/path/to/dsh-mobile-plus to also run the cross-repo comparison:
+# it reads lib/constants.js there and verifies the 24 RPC method names and
+# their order have not drifted. If unset, those 4 checks are skipped.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
