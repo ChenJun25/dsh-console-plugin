@@ -235,7 +235,8 @@ dsh-console://pair?b=http://192.168.x.x:8899&k=pt_<32位hex>&n=<节点名>&i=dsh
 node test/selftest.mjs
 ```
 
-**不需要装进 DSH 就能跑。** 验 10 组：载荷格式、6 位码一次性、二维码真能出图、`/claim` 通路、
+**不需要装进 DSH 就能跑。** 需要源码仓里的 `test/` 目录（npm 包里只带 `lib/`，不带测试脚本）。
+验 10 组：载荷格式、6 位码一次性、二维码真能出图、`/claim` 通路、
 配对页已彻底删除、安全边界（401/403）、端口被占时必须报错而不是偷偷换、
 客户端半边契约、宿主半边契约（必须 `connection.fetch.register` + `sessionController.prompt`）、
 包清单（`files` 里的文件都得存在）。
