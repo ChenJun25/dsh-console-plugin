@@ -23,11 +23,27 @@
 
 ## 安装
 
-### 方式 A · 插件页安装（推荐）
+### 方式 A · 一条命令装（推荐）
 
-DSH 侧栏 → **插件** → 「添加插件」→ 选打包出来的 `dsh-console-plugin-<版本>.tgz`。
+```bash
+dsh plugin --profile web add dsh-console-plugin
+```
 
-### 方式 B · 写进 profile（开发用）
+`--profile` 后面写你自己的 profile 名（默认是 `web`）。**这个参数不能省**，省掉会直接报
+`required option '--profile <name>' not specified`。
+
+刚发的版本有时会装到上一个，那是 pnpm 的「最小发布龄」供应链策略在拦新包，等一会儿再装，
+或者指定版本号 / 关掉这条策略：
+
+```bash
+dsh plugin --profile web add dsh-console-plugin@latest --config.minimumReleaseAge=0
+```
+
+### 方式 B · 插件页安装
+
+DSH 侧栏 → **插件** → 「添加插件」→ 选 `dsh-console-plugin-<版本>.tgz`。
+
+### 方式 C · 写进 profile（开发用）
 
 profile 的 `package.json` 里：
 
@@ -251,4 +267,4 @@ dsh-console-plugin/
 
 ---
 
-MIT License · 作者 dafeiyu
+MIT License · 作者 CJ

@@ -3,7 +3,7 @@
   "version": "0.5.17",
   "description": "DSH控制台面板：在 DSH 设置里显示扫码配对面板，手机扫一下就连上这台电脑的 DSH。",
   "license": "MIT",
-  "author": "dafeiyu <dafeiyu@users.noreply.github.com>",
+  "author": "CJ <ChenJun25@users.noreply.github.com>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ChenJun25/dsh-console-plugin.git"
