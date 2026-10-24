@@ -1,4 +1,9 @@
-
+// 第 601 节（App 侧）/ 插件 0.5.31 · 工具体按需：插件侧纯逻辑单测。
+// 与 App 侧 LanClient.ets / Session.ets 的约定逐条对齐：
+//   · 只对「末尾 keepTurns 轮之外」的工具卡置空
+//   · 只清 detail / result，brief / name / state 保留（列表行照旧能画）
+//   · 被清空的卡打 bodyOmitted = true（App 据此在展开时补拉）
+//   · 幂等：第二次调用省 0 字节
 import assert from 'node:assert/strict'
 import { omitToolBodies } from '../lib/index.js'
 
@@ -10,7 +15,7 @@ function card(name, detail, result, brief) {
 }
 
 function turns5() {
-
+  // 5 轮，每轮 2 张卡；正文各 1000 字符（≈1000 字节 ASCII）
   const mk = (t) => ({
     turn: t,
     tools: [

@@ -1,3 +1,14 @@
+# DSH Console - bundle patch
+#
+# Install: add the packed .tgz through the DSH plugin page, or list this package in the bundle config.
+#
+# NOTE: the loader entry lives in THIS file, which ships inside the package.
+# Do not repeat the same insert in the host's own cordis.patch.yml -
+# that file is only for id-scoped config overrides; a duplicate insert loads the plugin twice.
+#
+# Config (usually not needed):
+#   port: 8899      LAN service port; falls back to the next free port when taken
+#   name: "My PC"   display name shown in the panel
 - insert:
     - id: dsh-console
       name: './lib/index.js'

@@ -41,6 +41,7 @@ ok('isRpcShaped accepts a real call')
 assert.equal(isRpcShaped('/mp/pair/accept'), false)
 ok('isRpcShaped rejects the pairing route')
 
+// The client builds these paths; if they drift the app breaks at runtime.
 assert.equal(ENDPOINTS.wsMux, '/mp/api/ws/mux')
 assert.equal(ENDPOINTS.wsHost, '/mp/api/ws/host')
 assert.equal(ENDPOINTS.accept, '/mp/pair/accept')
@@ -55,6 +56,7 @@ assert.equal(isAllowed('session.list'), true)
 assert.equal(isAllowed('session.list2'), false)
 ok('isAllowed is exact-match, not prefix')
 
+// The four the client actually calls on the happy path.
 for (const m of ['session.history', 'session.prompt', 'session.list', 'mobile.respond']) {
   assert.equal(isAllowed(m), true, m)
 }
@@ -159,6 +161,7 @@ assert.equal(q.rpcId, 'q1')
 assert.equal(q.kind, 'question')
 ok('a question request becomes a client frame')
 
+// plan-review: the same five conditions the host uses.
 const planish = { intent: { kind: 'plan-review' }, detail: '会改 3 个文件', multiSelect: false, options: [{ label: 'approve' }] }
 assert.equal(questionInteractionStatus([planish]), 'plan-review')
 ok('a single plan-review question with approve is a plan review')
@@ -206,6 +209,7 @@ ok('the tracker is read into a snapshot')
 assert.deepEqual(pendingSnapshot(null), { approvals: [], questions: [] })
 ok('no tracker yields an empty snapshot, not a crash')
 
+// The regression this guards: polling every 10s must not wipe a half-typed answer.
 const first = { approvals: [], questions: [{ rpcId: 'q1', answers: [{ id: 'x', custom: '我输入了一半' }] }] }
 const second = { approvals: [], questions: [{ rpcId: 'q1', answers: [] }] }
 const merged = mergePending(first, second)
@@ -233,11 +237,15 @@ if (MP_SRC && existsSync(join(MP_SRC, 'lib', 'constants.js'))) {
   assert.equal(hostCookie[1], COOKIE, 'COOKIE must equal the host value')
   ok('COOKIE matches the host')
 
+  // The ALLOW block is a Set literal; slice it out and read the names in order.
   const hostList = host.slice(host.indexOf('ALLOW = new Set(['), host.indexOf('])', host.indexOf('ALLOW')))
   const hostMethods = [...hostList.matchAll(/'([\w.]+)'/g)].map((m) => m[1])
   assert.deepEqual(ALLOW, hostMethods, '白名单名字与顺序必须与宿主完全一致')
   ok(`all ${ALLOW.length} methods match the host, in order`)
 
+  // The host writes these as arithmetic (12 * 1024 * 1024), so evaluate the
+  // expression rather than matching the source text. The capture is only digits,
+  // spaces and '*', so eval here touches nothing untrusted.
   const hostBody = /export const MAX_BODY = ([^\n]+)/.exec(host)
   assert.ok(hostBody, 'host declares MAX_BODY')
   assert.ok(/^[\d\s*]+$/.test(hostBody[1]), 'MAX_BODY is a plain arithmetic expression')

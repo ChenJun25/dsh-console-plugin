@@ -299,6 +299,7 @@ ok(!/profile/.test(patch.split('\n').filter(l => l.trim().startsWith('#')).join(
 
 console.log('')
 
+/* ================= 10. package.json ================= */
 console.log('【10】包清单')
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
 const clientInject = (pkg.dsh && pkg.dsh.client && pkg.dsh.client.inject) || []
@@ -326,6 +327,7 @@ for (const entry of (pkg.files || [])) {
 ok(missing.length === 0, 'files 里没有不存在的文件', missing.join(', '))
 ok(fs.existsSync(path.join(root, 'node_modules', 'qrcode')), 'qrcode 依赖已装（二维码要它）')
 console.log('')
+
 
 lan.stop()
 console.log(failed === 0 ? '全部通过 ✓' : ('有 ' + failed + ' 项失败'))

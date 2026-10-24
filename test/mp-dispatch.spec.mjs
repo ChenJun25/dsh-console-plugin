@@ -48,7 +48,8 @@ section('信封与白名单')
 }
 
 {
-
+  // Missing methods must degrade to unavailable, never throw — the client
+  // branches on the code and a throw would blank the whole screen.
   const d = createDispatcher(ctxWith({}), noLog, null, { pins: new Set() })
   for (const m of ['session.list', 'session.history', 'session.prompt', 'session.cancel', 'command.list']) {
     const r = await d(m, { sessionId: 's1' }, 'r')
@@ -75,7 +76,7 @@ section('会话投影字段')
   const d = createDispatcher(ctxWith(fakeCtl({ list: async () => raw })), noLog, null, { pins: new Set() })
   const r = await d('session.list', {}, 'r')
   const s = r.result.value.items[0]
-
+  // The client reads sessionId/title/updatedAt/running/pinned — not `id`.
   assert.equal(s.sessionId, 's1')
   assert.equal(s.title, '标题')
   assert.equal(s.updatedAt, 1700)
@@ -114,6 +115,7 @@ section('游标分页')
   assert.equal(seen.size, 25, 'no session appears on both pages')
   ok('paging never repeats or drops a session')
 
+  // A cursor for a deleted session must not yield a blank page.
   const stale = (await d('session.list', { cursor: '0:gone' }, 'r')).result.value
   assert.equal(stale.items.length, 20)
   ok('an unrecognised cursor falls back to page one rather than nothing')
@@ -142,6 +144,9 @@ section('session.prompt')
   ok('a missing sessionId is rejected')
 }
 
+// The prompt body is content blocks, not text+attachments — that shape came from
+// mp's rpc.js passing the payload through, and from the host's own
+// PromptContentPart. Getting this wrong means text silently never arrives.
 {
   let seen = null
   const d = createDispatcher(ctxWith(fakeCtl({ prompt: async (req) => { seen = req; return { ok: true } } })), noLog, null, { pins: new Set() })
@@ -167,6 +172,8 @@ section('session.prompt')
   assert.equal(seen.content[0].mediaType, 'image/jpeg', 'mediaType defaults rather than staying undefined')
   ok('an image-only message is accepted and gets a default mediaType')
 
+  // An all-empty content array leaves nothing to send, so the request is
+  // refused rather than delivered as a blank message.
   const blank = await d('session.prompt', { sessionId: 's1', content: [{ type: 'text', text: '' }] }, 'r')
   assert.equal(blank.result.ok, false)
   assert.equal(blank.result.error.code, 'bad-request')
@@ -180,7 +187,7 @@ section('session.prompt')
 section('session.history')
 
 {
-
+  // The host has used three different shapes for this over time.
   const shapes = [
     { events: [{ seq: 1 }] },
     { value: { events: [{ seq: 2 }] } },
@@ -274,7 +281,8 @@ section('宿主抛错时的行为')
 }
 
 {
-
+  // push.* is a known-unavailable area: the client already knows harmony has no
+  // web push, so it must get a clean answer rather than a failure.
   const d = createDispatcher(ctxWith(fakeCtl()), noLog, null, { pins: new Set() })
   const k = await d('push.key', {}, 'r')
   assert.equal(k.result.ok, true)

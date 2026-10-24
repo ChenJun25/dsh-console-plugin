@@ -61,7 +61,8 @@ section('鉴权门禁')
   })
   assert.equal(r.status, 403)
   const body = await r.json()
-
+  // The client reads this code and says "plugin too old"; a 401 would be read
+  // as "this device is not paired" and send the user to the wrong screen.
   assert.equal(body.code, 'forbidden')
   await s.close()
   ok('a wrong cookie is 403 forbidden, which the client reads differently from 401')
@@ -69,7 +70,7 @@ section('鉴权门禁')
 
 {
   const s = await serve()
-
+  // Non-/mp traffic must be untouched — the legacy token path still works.
   const r = await fetch(s.base + '/sessions')
   assert.equal(r.status, 404)
   assert.equal(await r.text(), 'not mp')
@@ -79,7 +80,7 @@ section('鉴权门禁')
 
 {
   const s = await serve()
-
+  // /mp-ish prefixes that are not ours must not be stolen.
   for (const p of ['/mpx/api/session.list', '/mppx/api']) {
     const r = await fetch(s.base + p)
     assert.equal(r.status, 404, p)
@@ -111,7 +112,7 @@ section('配对换 Cookie')
   assert.equal(r.status, 200)
   const raw = r.headers.get('set-cookie')
   assert.ok(raw, 'Set-Cookie is present')
-
+  // ArkTS reads the response header as a JSON string, so the name must survive.
   assert.ok(raw.startsWith('mp_device=goodsecret'), raw)
   assert.ok(raw.includes('HttpOnly'), 'HttpOnly is set')
   assert.ok(raw.includes('Path=/'), 'path is scoped to the root')
@@ -123,7 +124,7 @@ section('配对换 Cookie')
 }
 
 {
-
+  // The full client flow: accept -> carry the cookie -> call an RPC.
   const s = await serve()
   const pair = await fetch(s.base + '/mp/pair/accept', {
     method: 'POST', headers: { 'content-type': 'application/json' },
@@ -152,6 +153,7 @@ section('配对换 Cookie')
   ok('pair/status reports paired for a known device')
 }
 
+/* ---------------- RPC ---------------- */
 section('RPC 往返')
 
 {
@@ -181,7 +183,9 @@ section('RPC 往返')
 }
 
 {
-
+  // A path under /mp/api/ with an extra segment is still RPC-shaped, so it
+  // answers forbidden rather than 404 — the client reads the code either way,
+  // and treating it as "no such route" would hide a client bug.
   const s = await serve()
   const r = await fetch(s.base + '/mp/api/session.list/extra', {
     method: 'POST', headers: withCookie('goodsecret'),
@@ -204,7 +208,7 @@ section('RPC 往返')
 }
 
 {
-
+  // A body that is not JSON must not take the server down.
   const s = await serve()
   const r = await fetch(s.base + '/mp/api/session.list', {
     method: 'POST', headers: withCookie('goodsecret'),
