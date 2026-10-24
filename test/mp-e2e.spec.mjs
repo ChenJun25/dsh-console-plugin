@@ -58,8 +58,7 @@ async function boot() {
     lan, mp, emit, events, info,
 
     listeners,
-    // lan.urls carry the /dsh-console prefix that the panel is served under;
-    // the mp routes are on the bare origin, so talk to loopback directly.
+
     base: 'http://127.0.0.1:' + info.port,
     code: lan.peekPairCode(),
     stop: async () => { mp.dispose(); lan.stop() },
