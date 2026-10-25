@@ -1,0 +1,28 @@
+# ===== dependencies =====
+node_modules/
+
+# ===== local backups =====
+*.bak
+*.bak-*
+*.bak-before*
+*.bak[0-9]*
+
+# ===== build artifacts =====
+*.tgz
+
+# ===== logs and temp output =====
+*.log
+tmp-*/
+tmp/
+
+# ===== local-only notes =====
+交接说明.md
+协同记录.md
+
+# ===== OS junk =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== stray cache directory =====
+%SystemDrive%/
