@@ -119,6 +119,35 @@ section('游标分页')
   ok('an unrecognised cursor falls back to page one rather than nothing')
 }
 
+section('子智能体会话不出现')
+
+{
+
+  const items = [
+    { sessionId: 'real-1', title: '正常会话', updatedAt: 3000, cwd: 'w' },
+    { sessionId: 'shell-1', title: '[dsh-mnemon:delegated search]', updatedAt: 2900, cwd: 'w', origin: 'subagent' },
+    { sessionId: 'shell-2', title: '[dsh-mnemon:delegated read]', updatedAt: 2800, cwd: 'w', origin: 'subagent' },
+  ]
+  const d = createDispatcher(ctxWith(fakeCtl({ list: async () => ({ items }) })), noLog, null, { pins: new Set() })
+
+  const r = (await d('session.list', {}, 'r')).result.value
+  assert.equal(r.items.length, 1, 'only the real conversation is left')
+  assert.equal(r.items[0].sessionId, 'real-1')
+  ok('session.list hides subagent task shells')
+
+  const w = (await d('workspace.list', {}, 'r')).result.value
+  assert.equal(w.items.length, 1, 'the workspace row is not duplicated per task shell')
+  ok('workspace.list hides them too')
+
+  const fork = [
+    { sessionId: 'fork-1', title: '分叉会话', updatedAt: 3000, cwd: 'w', parentSessionId: 'real-1' },
+  ]
+  const d2 = createDispatcher(ctxWith(fakeCtl({ list: async () => ({ items: fork }) })), noLog, null, { pins: new Set() })
+  const rf = (await d2('session.list', {}, 'r')).result.value
+  assert.equal(rf.items.length, 1)
+  ok('a forked session is not mistaken for a task shell')
+}
+
 section('session.prompt')
 
 {
