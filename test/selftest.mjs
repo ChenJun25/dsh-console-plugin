@@ -1,4 +1,4 @@
-import { startLanServer, pairPayload, qrDataUrl } from '../lib/lan-server.mjs'
+import { startLanServer, pairPayload, qrDataUrl, guiPrefixBootstrap } from '../lib/lan-server.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -330,3 +330,6 @@ console.log('')
 lan.stop()
 console.log(failed === 0 ? '全部通过 ✓' : ('有 ' + failed + ' 项失败'))
 process.exit(failed === 0 ? 0 : 1)
+
+console.log('【GUI 短号前缀回归】')
+await import('./gui-prefix.spec.mjs')
