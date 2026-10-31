@@ -327,6 +327,63 @@ ok(missing.length === 0, 'files 里没有不存在的文件', missing.join(', ')
 ok(fs.existsSync(path.join(root, 'node_modules', 'qrcode')), 'qrcode 依赖已装（二维码要它）')
 console.log('')
 
+console.log('【11】随附插件 companions')
+const os = await import('node:os')
+const cmp = await import('../lib/companion.mjs')
+ok(cmp.COMPANION_ID === 'dsh-web-mobile', '随附插件 id 是 dsh-web-mobile')
+ok(/^dsh-web-mobile@\d+\.\d+\.\d+$/.test(cmp.COMPANION_SPEC), '随附插件 spec 带精确版本', cmp.COMPANION_SPEC)
+
+const mkHome = () => fs.mkdtempSync(path.join(os.tmpdir(), 'cmp-'))
+const h1 = mkHome()
+ok(cmp.companionStatePath(h1) === path.join(h1, '.dsh', 'dsh-console-companion.json'), '状态文件落在 ~/.dsh 下')
+ok(cmp.companionStatePath('') === '', 'home 为空时不写文件')
+
+let installs = 0
+const fakeSvc = {
+  async listBundles() { return [] },
+  async installBundle() { installs++; return { version: '3.2.1', application: 'restart-required' } },
+  async setBundleEnabled() { throw new Error('不该走到启用分支') }
+}
+const r1 = await cmp.ensureCompanionPlugin({ svc: fakeSvc, log: () => {}, statePath: cmp.companionStatePath(h1) })
+ok(r1.action === 'installed' && installs === 1, '没装时自动安装一次', r1.action)
+const r2 = await cmp.ensureCompanionPlugin({ svc: fakeSvc, log: () => {}, statePath: cmp.companionStatePath(h1) })
+ok(r2.action === 'skipped' && r2.reason === 'done' && installs === 1, '成功过就不再动（用户日后删了也不硬塞）', r2.reason)
+
+const h2 = mkHome()
+const fakeBad = {
+  async listBundles() { return [] },
+  async installBundle() { return { application: 'failed', error: { code: 'operation-error' } } }
+}
+const f1 = await cmp.ensureCompanionPlugin({ svc: fakeBad, log: () => {}, statePath: cmp.companionStatePath(h2) })
+ok(f1.action === 'failed', '安装失败要如实报 failed', f1.reason)
+await cmp.ensureCompanionPlugin({ svc: fakeBad, log: () => {}, statePath: cmp.companionStatePath(h2) })
+const f3 = await cmp.ensureCompanionPlugin({ svc: fakeBad, log: () => {}, statePath: cmp.companionStatePath(h2) })
+ok(f3.action === 'failed', '第 3 次仍然失败就照实报', f3.reason)
+const f4 = await cmp.ensureCompanionPlugin({ svc: fakeBad, log: () => {}, statePath: cmp.companionStatePath(h2) })
+ok(f4.action === 'skipped' && f4.reason === 'gave-up', '失败满 3 次就停手，不再骚扰用户', f4.reason)
+
+const fakeOn = { async listBundles() { return [{ name: 'dsh-web-mobile', enabled: true, version: '3.2.1' }] } }
+const a1 = await cmp.ensureCompanionPlugin({ svc: fakeOn, log: () => {}, statePath: cmp.companionStatePath(mkHome()) })
+ok(a1.action === 'already', '已装已启用就什么都不干', a1.action)
+
+let enabledCalls = 0
+const fakeOff = {
+  async listBundles() { return [{ name: 'dsh-web-mobile', enabled: false, version: '3.2.1' }] },
+  async setBundleEnabled() { enabledCalls++; return { application: 'reloaded' } }
+}
+const e1 = await cmp.ensureCompanionPlugin({ svc: fakeOff, log: () => {}, statePath: cmp.companionStatePath(mkHome()) })
+ok(e1.action === 'enabled' && enabledCalls === 1, '装了但没启用 → 打开它', e1.action)
+
+const d1 = await cmp.ensureCompanionPlugin({ svc: fakeOn, log: () => {}, statePath: cmp.companionStatePath(mkHome()), disabled: true })
+ok(d1.action === 'skipped' && d1.reason === 'disabled', '配了开关能整条关掉', d1.reason)
+const n1 = await cmp.ensureCompanionPlugin({ svc: null, log: () => {}, statePath: cmp.companionStatePath(mkHome()) })
+ok(n1.action === 'skipped' && n1.reason === 'no-service', '宿主没给 pluginManager 时安静跳过', n1.reason)
+
+const idxSrc = fs.readFileSync(path.join(root, 'lib', 'index.js'), 'utf8')
+ok(idxSrc.includes("from './companion.mjs'"), 'index.js 真的 import 了 companion.mjs')
+ok(/Promise\.resolve\(\)[\s\S]{0,400}ensureCompanionPlugin/.test(idxSrc), '自检是 Promise 链、不 await（不会拖慢启动）')
+console.log('')
+
 lan.stop()
 console.log(failed === 0 ? '全部通过 ✓' : ('有 ' + failed + ' 项失败'))
 process.exit(failed === 0 ? 0 : 1)

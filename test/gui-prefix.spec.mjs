@@ -12,6 +12,17 @@ const LAUNCH = 'L'.repeat(43)
 const seen = []
 const host = http.createServer((req, res) => {
   seen.push(req.url)
+  if (req.url === '/?token=' + LAUNCH) {
+
+    res.writeHead(303, { location: './', 'set-cookie': 'dsh-auth-test=v1; Path=/; HttpOnly; SameSite=Strict' })
+    res.end()
+    return
+  }
+  if (req.url === '/' && String(req.headers.cookie || '').indexOf('dsh-auth-test=v1') < 0) {
+    res.writeHead(401, { 'content-type': 'text/plain' })
+    res.end('dsh web authentication required')
+    return
+  }
   if (req.url.startsWith('/api/echo')) {
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ url: req.url, host: req.headers.host }))
@@ -82,7 +93,7 @@ try {
   const api = await fetch(base + prefix + '/api/echo?q=1', { headers: { cookie } })
   assert.equal((await api.json()).url, '/api/echo?q=1')
   const apiByToken = await fetch(base + prefix + '/api/echo?q=2&token=' + LAUNCH)
-  assert.equal((await apiByToken.json()).url, '/api/echo?q=2&token=' + LAUNCH)
+  assert.equal((await apiByToken.json()).url, '/api/echo?q=2')
   const badCookie = await fetch(base + prefix + '/api/echo?q=1', { headers: { cookie: 'dsh-console-gui=forged' } })
   assert.equal(badCookie.status, 401)
 
@@ -99,7 +110,8 @@ try {
   assert.ok(!seen.some((u) => u.includes(CODE)), '访问码不许原样转给宿主：' + JSON.stringify(seen))
   seen.length = 0
   await fetch(base + prefix + '/?token=' + LAUNCH + '&keep=1')
-  assert.ok(seen.includes('/?token=' + LAUNCH + '&keep=1'), 'launch token 必须原样保留')
+  assert.ok(seen.includes('/?keep=1'), 'launch token 同样不许原样转给宿主（宿主会 303 甩掉它）')
+  assert.ok(!seen.some((u) => u.includes(LAUNCH) && u.includes('keep=1')), '带业务 query 的转发不许夹带 launch token：' + JSON.stringify(seen))
   seen.length = 0
   await fetch(base + prefix + '/api/echo?q=4', { headers: { cookie } })
   assert.ok(seen.includes('/api/echo?q=4'))
