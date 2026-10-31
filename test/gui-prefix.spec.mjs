@@ -16,7 +16,11 @@ const host = http.createServer((req, res) => {
     return
   }
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', etag: 'old' })
-  res.end('<!doctype html><html><head><base href="./"><script src="/plugin.js"></script></head><body>GUI<script>s.src="/widget.js";</script></body></html>')
+  res.end('<!doctype html><html><head><base href="./"><script src="/plugin.js"></script>'
+    + '<link rel="stylesheet" href="/app.css"><script src="//cdn.example.cn/lib.js"></script>'
+    + '<script src="/keep.js?token=KEEPME"></script></head>'
+    + '<body>GUI<img src="https://cdn.example.cn/a.png"><a href="/page#frag">x</a>'
+    + '<script>s.src="/widget.js";</script></body></html>')
 })
 const upstreamSockets = []
 const upstreamWs = new WebSocketServer({ noServer: true })
@@ -53,10 +57,21 @@ try {
   assert.ok(html.indexOf(guiPrefixBootstrap) < html.indexOf('<base'))
   assert.ok(html.includes('__DSH_CONSOLE_GUI_TOKEN__="' + LAUNCH + '"'))
   assert.ok(html.includes(guiTokenBootstrap))
-  assert.ok(html.includes('src="' + prefix + '/plugin.js"'))
+  assert.ok(html.includes('src="' + prefix + '/plugin.js?token=' + LAUNCH + '"'))
   assert.equal(r.headers.get('etag'), null)
-  assert.ok(html.includes('<script>s.src="' + prefix + '/widget.js";</script>'))
+  assert.ok(html.includes('<script>s.src="' + prefix + '/widget.js?token=' + LAUNCH + '";</script>'))
   assert.ok(!html.includes('src="' + prefix + '/"widget.js"'))
+
+  assert.ok(html.includes('href="' + prefix + '/app.css?token=' + LAUNCH + '"'))
+  assert.ok(html.includes('href="' + prefix + '/page#frag?token=' + LAUNCH + '"') === false)
+  assert.ok(html.includes('href="' + prefix + '/page?token=' + LAUNCH + '#frag"'))
+  assert.ok(html.includes('src="//cdn.example.cn/lib.js"'))
+  assert.ok(!html.includes('cdn.example.cn/lib.js?token='))
+  assert.ok(html.includes('src="https://cdn.example.cn/a.png"'))
+  assert.ok(!html.includes('cdn.example.cn/a.png?token='))
+  assert.ok(html.includes('src="' + prefix + '/keep.js?token=KEEPME"'))
+  assert.ok(!html.includes('KEEPME&token='))
+  assert.ok(!html.includes('token=' + LAUNCH + '?token='))
   assert.equal(Number(r.headers.get('content-length')), Buffer.byteLength(html))
 
   const setCookie = String(r.headers.get('set-cookie') || '')
