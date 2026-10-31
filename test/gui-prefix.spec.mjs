@@ -9,7 +9,9 @@ const sid = 'ABCDEFGHIJKLMNO'
 const prefix = '/dsh-console/' + sid + '/gui'
 const CODE = 't'.repeat(64)
 const LAUNCH = 'L'.repeat(43)
+const seen = []
 const host = http.createServer((req, res) => {
+  seen.push(req.url)
   if (req.url.startsWith('/api/echo')) {
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ url: req.url, host: req.headers.host }))
@@ -89,6 +91,18 @@ try {
   assert.ok((await byCode.text()).includes('__DSH_CONSOLE_GUI_TOKEN__="' + CODE + '"'))
   const byHeader = await fetch(base + prefix + '/api/echo?q=3', { headers: { 'x-dsh-console-token': CODE } })
   assert.equal((await byHeader.json()).url, '/api/echo?q=3')
+
+  seen.length = 0
+  const codeDoc = await fetch(base + prefix + '/?token=' + CODE + '&keep=1')
+  assert.equal(codeDoc.status, 200)
+  assert.ok(seen.includes('/?keep=1'), '访问码进来的其它 query 要保留')
+  assert.ok(!seen.some((u) => u.includes(CODE)), '访问码不许原样转给宿主：' + JSON.stringify(seen))
+  seen.length = 0
+  await fetch(base + prefix + '/?token=' + LAUNCH + '&keep=1')
+  assert.ok(seen.includes('/?token=' + LAUNCH + '&keep=1'), 'launch token 必须原样保留')
+  seen.length = 0
+  await fetch(base + prefix + '/api/echo?q=4', { headers: { cookie } })
+  assert.ok(seen.includes('/api/echo?q=4'))
 
   const local = await fetch('http://127.0.0.1:' + host.address().port + '/')
   assert.ok(!(await local.text()).includes('__DSH_CONSOLE_GUI_PREFIX__'))
@@ -170,7 +184,7 @@ try {
   assert.equal(f2[3], 'https://elsewhere.cn/api/d')
   assert.equal(x2[0][1], '/xhr2?token=' + LAUNCH)
   assert.equal(s2[0][0], 'wss://example.cn/ws2?token=' + LAUNCH)
-  console.log('GUI 短号前缀：HTTP、WebSocket、fetch、XHR、/gui 鉴权（launch / 访问码 / cookie）全部通过')
+  console.log('GUI 短号前缀：HTTP、WebSocket、fetch、XHR、/gui 鉴权（launch / 访问码 / cookie）与上游 query 剥离全部通过')
 } finally {
   await lan.stop()
   for (const socket of upstreamSockets) socket.terminate()
