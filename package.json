@@ -1,6 +1,6 @@
 {
   "name": "dsh-console-plugin",
-  "version": "0.5.51",
+  "version": "0.5.52",
   "description": "DSH控制台面板：在 DSH 设置里显示扫码配对面板，手机扫一下就连上这台电脑的 DSH。",
   "license": "MIT",
   "author": "CJ <ChenJun25@users.noreply.github.com>",
@@ -31,9 +31,6 @@
   "dependencies": {
     "qrcode": "^1.5.4"
   },
-  "bundleDependencies": [
-    "qrcode"
-  ],
   "peerDependencies": {
     "@deepseek-ai/cordis": ">=4.0.1",
     "@deepseek-ai/dsh-client-locale": ">=0.1.0-rc.5",
