@@ -13,6 +13,9 @@ const ok = (c, label, extra) => {
 }
 
 const TOKEN = 'b'.repeat(64)
+
+const SECRET = 'SELFTEST-INTERNAL-SECRET'
+const INR = { 'x-dsh-console-internal': SECRET }
 const INFO = { name: '客厅电脑', nodeId: 'dsh-console', host: 'DESKTOP-XYZ', dshOk: true, version: '0.1.0' }
 
 console.log('【1】二维码载荷')
@@ -33,6 +36,7 @@ const TEST_PORT = 18777
 const lan = startLanServer({
   port: TEST_PORT,
   allowShift: true,
+  internalSecret: SECRET,
   getToken: () => TOKEN,
   getInfo: () => INFO,
   listSessions: async () => [],
@@ -68,7 +72,7 @@ console.log('')
 console.log('【4】6 位码换访问码')
 const post = async (c) => {
   const r = await fetch(base + '/claim', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
+    method: 'POST', headers: Object.assign({}, INR, { 'content-type': 'application/json' }),
     body: JSON.stringify({ code: c })
   })
   return { status: r.status, body: await r.json() }
@@ -94,13 +98,13 @@ console.log('【5】浏览器配对页已删除')
 {
   let allGone = true
   for (const p of ['/', '/pair']) {
-    const r = await fetch(base + p)
+    const r = await fetch(base + p, { headers: INR })
     const body = await r.text()
     if (r.status !== 401) allGone = false
     if (body.includes('<html') || body.includes('<!DOCTYPE')) allGone = false
   }
   ok(allGone, '/ 与 /pair 一律 401、一个字节 HTML 都不吐')
-  const withTok = await fetch(base + '/pair?token=' + TOKEN)
+  const withTok = await fetch(base + '/pair?token=' + TOKEN, { headers: INR })
   ok(withTok.status === 404, '带对码也没有 /pair 路由（404）')
 }
 console.log('')
@@ -112,8 +116,25 @@ const badTok = await fetch(base + '/info?token=wrong')
 ok(badTok.status === 401, '错访问码被拒')
 const withTok = await fetch(base + '/info?token=' + TOKEN)
 ok(withTok.status === 200, '对访问码放行')
-const qrNoTok = await fetch(base + '/qr')
+const qrNoTok = await fetch(base + '/qr', { headers: INR })
 ok(qrNoTok.status === 200, '/qr 免 token（配对页没了，这个二维码接口还在）')
+
+const PUB_MSG = '配对与取码仅限局域网内使用'
+for (const path of ['/qr', '/newcode']) {
+  const r = await fetch(base + path, { headers: {} })
+  let msg = ''
+  try { msg = (await r.json()).error || '' } catch (e) { msg = '' }
+  ok(r.status === 403 && msg === PUB_MSG, '隧道回连打 ' + path + ' 必须 403（不许给外人取码）', r.status + ' ' + msg)
+}
+{
+  const r = await fetch(base + '/claim', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ code }),
+  })
+  let msg = ''
+  try { msg = (await r.json()).error || '' } catch (e) { msg = '' }
+  ok(r.status === 403 && msg === PUB_MSG, '隧道回连打 /claim 必须 403（不许外人拿码换访问码）', r.status + ' ' + msg)
+}
 const sessNoTok = await fetch(base + '/sessions')
 ok(sessNoTok.status === 401, '没访问码读会话被拒')
 console.log('')
