@@ -1,0 +1,1 @@
+DSH Console: a pairing panel inside DSH settings. Scan the QR code (or type the 6-digit code) to connect your phone to this computer's DSH — then send messages, browse history and transfer files from the phone app. Everything runs locally on this machine.
