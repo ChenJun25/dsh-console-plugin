@@ -265,15 +265,20 @@ section('手机答复必须放掉宿主那一环（电脑端卡片摘除）')
     const ctrl = new AbortController()
     const reqA = { approvalId: 'a9', rpcId: 'q12', sessionId: 's1', toolName: 'fs.write', callId: 'c9', reason: '要写文件', signal: ctrl.signal }
     const pendA = host('approval/request', reqA, () => new Promise(() => {}))[0]
-    assert.equal(reqA.signal, ctrl.signal, 'the approval signal object is left exactly as the host sent it')
+    assert.ok(reqA.signal !== undefined, 'a claimed approval request carries a signal the plugin owns')
+    assert.notEqual(reqA.signal, ctrl.signal, 'the calling Turn signal is wrapped, never replaced by the plugin own one')
+    assert.equal(ctrl.signal.aborted, false, 'wrapping never aborts the calling Turn signal')
+    assert.equal(reqA.signal.aborted, false, 'nothing is cancelled before the phone answers')
     const repA = await (await fetch(b.base + '/mp/api/mobile.respond', {
       method: 'POST', headers: { Cookie: cookie },
       body: JSON.stringify({ rpcId: 'r', payload: { sessionId: 's1', type: 'approval', approvalId: 'a9', outcome: 'allow' } }),
     })).json()
     assert.equal(repA.result.ok, true)
     assert.equal(await pendA, 'allowed-once', 'the phone answer settles the approval ring')
+    await new Promise((r) => setTimeout(r, 20))
+    assert.equal(reqA.signal.aborted, true, 'after the phone answers, the wrapped signal aborts so the desktop card is withdrawn')
     assert.equal(ctrl.signal.aborted, false, 'answering an approval must never abort the calling turn')
-    ok('an approval answer never touches the calling turn signal')
+    ok('an approval answer withdraws the desktop card without touching the calling turn signal')
   } finally {
     await b.stop()
   }
