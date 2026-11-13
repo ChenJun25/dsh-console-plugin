@@ -33,7 +33,7 @@ App 只在**应用商店**下载，本仓不提供安装包。
 ### 方式 A · 一条命令装（推荐）
 
 ```bash
-dsh plugin --profile web add dsh-console-plugin
+dsh plugin --profile web add dsh-console-hm
 ```
 
 `--profile` 后面写你自己的 profile 名（默认是 `web`）。**这个参数不能省**，省掉会直接报
@@ -43,22 +43,22 @@ dsh plugin --profile web add dsh-console-plugin
 或者指定版本号 / 关掉这条策略：
 
 ```bash
-dsh plugin --profile web add dsh-console-plugin@latest --config.minimumReleaseAge=0
+dsh plugin --profile web add dsh-console-hm@latest --config.minimumReleaseAge=0
 ```
 
 ### 方式 B · 插件页安装
 
-DSH 侧栏 → **插件** → 「添加插件」→ 选 `dsh-console-plugin-<版本>.tgz`。
+DSH 侧栏 → **插件** → 「添加插件」→ 选 `dsh-console-hm-<版本>.tgz`。
 
 ### 方式 C · 写进 profile（开发用）
 
 profile 的 `package.json` 里：
 
 ```json
-"dependencies": { "dsh-console-plugin": "link:<你的插件目录绝对路径>" }
+"dependencies": { "dsh-console-hm": "link:<你的插件目录绝对路径>" }
 ```
 
-再把 `"dsh-console-plugin"` 加进该文件的 `dsh.profile.bundles` 数组，然后跑一次 `pnpm install`。
+再把 `"dsh-console-hm"` 加进该文件的 `dsh.profile.bundles` 数组，然后跑一次 `pnpm install`。
 
 > ⚠️ **不要**在 profile 的 `cordis.patch.yml` 里再写一遍 `insert`。
 > loader 行放在**包自己的** `cordis.patch.yml` 里（包里已经带了）。
@@ -255,7 +255,7 @@ node test/selftest.mjs
 ## 文件结构
 
 ```
-dsh-console-plugin/
+dsh-console-hm/
 ├─ package.json              插件清单（dsh.client.inject / peerDeps / files）
 ├─ cordis.patch.yml          bundle patch（insert → lib/index.js）
 ├─ lib/
