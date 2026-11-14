@@ -1,4 +1,4 @@
-import { createTurnAnnouncer, TURN_SETTLE_MS } from '../lib/hw-push.mjs'
+import { createTurnAnnouncer, TURN_SETTLE_MS, skipAnnounceOf } from '../lib/hw-push.mjs'
 
 const results = []
 function ok(name, cond, extra) { results.push({ name, pass: !!cond, extra: extra || '' }) }
@@ -58,6 +58,23 @@ async function run() {
   a2.ping('s4')
   await sleep(120)
   ok('ready 假 ⇒ 一条都不发', sent2.length === 0, JSON.stringify(sent2))
+
+  ok('判据：origin=subagent ⇒ 跳过', skipAnnounceOf({ id: 'x', origin: 'subagent' }) === true)
+  ok('判据：分叉会话 origin 空 ⇒ 照推', skipAnnounceOf({ id: 'x', origin: '' }) === false)
+  ok('判据：origin 缺失 ⇒ 照推', skipAnnounceOf({ id: 'x' }) === false)
+  ok('判据：别的 origin 值 ⇒ 照推', skipAnnounceOf({ id: 'x', origin: 'fork' }) === false)
+
+  const sent3 = []
+  const a3 = createTurnAnnouncer(Object.assign({}, ctx, { send: (o) => { sent3.push(o.sessionId); return Promise.resolve({ ok: true, count: 1 }) } }))
+  sessions = [
+    { id: 'sub1', title: '子代理壳', running: false, updatedAt: 900, origin: 'subagent' },
+    { id: 'main1', title: '主会话', running: false, updatedAt: 901 }
+  ]
+  a3.ping('sub1')
+  a3.ping('main1')
+  await sleep(150)
+  ok('子智能体会话不推，主会话照推', sent3.length === 1 && sent3[0] === 'main1', JSON.stringify(sent3))
+  a3.stop()
 
   a.stop(); a2.stop()
   const bad = results.filter((r) => !r.pass)
